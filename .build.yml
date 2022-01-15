@@ -1,0 +1,13 @@
+image: nixos/latest
+sources:
+  - https://git.sr.ht/~munksgaard/ordleg
+tasks:
+  - format: |
+      cd ordleg
+      nix-shell --run "elm-format --validate src"
+  - build: |
+      cd ordleg
+      nix-shell --run "make elm"
+  - review: |
+      cd ordleg
+      nix-shell --run "make elm-review"
