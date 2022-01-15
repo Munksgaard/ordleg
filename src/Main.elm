@@ -154,7 +154,13 @@ view model =
             Element.none
 
         Just solution ->
-            column [ padding 10, centerX, height Element.fill, spacing 20 ]
+            column
+                [ padding 10
+                , centerX
+                , height Element.fill
+                , spacing 20
+                , width Element.fill
+                ]
                 [ el [ centerX, Font.size 30 ] (text "Velkommen til Ordleg!")
                 , (List.map (keysCompareDiv solution) (List.reverse model.guesses)
                     ++ [ guessBoxes model ]
@@ -179,7 +185,7 @@ emptyRow =
 
 box : List (Attribute msg) -> Element msg -> Element msg
 box attrs =
-    el (attrs ++ [ width <| Element.px 70, height <| Element.px 70 ])
+    el (attrs ++ [ width <| Element.px 50, height <| Element.px 50 ])
 
 
 emptyBox : Element msg
@@ -297,19 +303,42 @@ tastatur model =
     in
     tastaturList
         |> List.map
-            (Element.row [ spacing 10, centerX ]
+            (Element.row
+                [ spacing 5
+                , centerX
+                ]
                 << List.map
                     (\( c, k ) ->
-                        c
-                            |> text
-                            |> el
-                                [ Events.onClick (KeyDown k)
-                                , Background.color <| letterColor c
-                                , padding 10
+                        el
+                            [ Events.onClick (KeyDown k)
+                            , Background.color <| letterColor c
+                            , keyToWidth k
+                            , Font.size 16
+                            , height <| Element.px 40
+                            ]
+                            (el
+                                [ centerY
+                                , centerX
                                 ]
+                                (text c)
+                            )
                     )
             )
-        |> Element.column [ spacing 10, Element.alignBottom ]
+        |> Element.column
+            [ spacing 5
+            , Element.alignBottom
+            , centerX
+            ]
+
+
+keyToWidth : Key -> Attribute msg
+keyToWidth key =
+    case key of
+        Character _ ->
+            width <| Element.px 27
+
+        Control _ ->
+            width <| Element.px 50
 
 
 errorMessage : Model -> Element msg
