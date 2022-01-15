@@ -10,10 +10,11 @@ we can compute the list of possible words like this:
 
 ```
 cut -f 1 -d';' RO2012.opslagsord.med.homnr.og.ordklasse.txt \
-  | grep -E "^[a-zæøå]{5}$" \
-  | tr [a-zæøå] [A-ZÆØÅ] \
+  | grep -E "^[0-9\. ]*[a-zæøå]{5}$" \
+  | sed 's/[0-9\. ]*\(.*\)/"\1"/' \
   | sort \
-  | sed 's/\(.*\)/"\1"/' \
+  | uniq \
+  | tr [a-zæøå] [A-ZÆØÅ] \
   | paste -sd, - \
-  >> ../src/ordle/src/Main.elm
+  >> src/Main.elm
 ```
