@@ -6,6 +6,7 @@ import Browser.Events
 import Element exposing (Attribute, Element, centerX, centerY, column, el, height, padding, rgb255, row, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
+import Element.Events as Events
 import Element.Font as Font
 import Json.Decode as Json
 import Task
@@ -146,7 +147,7 @@ solutionFound model =
 -- VIEW
 
 
-view : Model -> Element msg
+view : Model -> Element Msg
 view model =
     case model.solution of
         Nothing ->
@@ -249,15 +250,15 @@ keyCompareDiv s n c0 =
     box [ Background.color color ] <| el [ centerX, centerY ] <| text c
 
 
-tastaturList : List (List String)
+tastaturList : List (List ( String, Key ))
 tastaturList =
-    [ [ "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "Å" ]
-    , [ "A", "S", "D", "F", "G", "H", "J", "K", "L", "Æ", "Ø" ]
-    , [ "Enter", "Z", "X", "C", "V", "B", "N", "M", "⌫" ]
+    [ [ ( "Q", Character 'Q' ), ( "W", Character 'W' ), ( "E", Character 'E' ), ( "R", Character 'R' ), ( "T", Character 'T' ), ( "Y", Character 'Y' ), ( "U", Character 'U' ), ( "I", Character 'I' ), ( "O", Character 'O' ), ( "P", Character 'P' ), ( "Å", Character 'Å' ) ]
+    , [ ( "A", Character 'A' ), ( "S", Character 'S' ), ( "D", Character 'D' ), ( "F", Character 'F' ), ( "G", Character 'G' ), ( "H", Character 'H' ), ( "J", Character 'J' ), ( "K", Character 'K' ), ( "L", Character 'L' ), ( "Æ", Character 'Æ' ), ( "Ø", Character 'Ø' ) ]
+    , [ ( "Enter", Control "Enter" ), ( "Z", Character 'Z' ), ( "X", Character 'X' ), ( "C", Character 'C' ), ( "V", Character 'V' ), ( "B", Character 'B' ), ( "N", Character 'N' ), ( "M", Character 'M' ), ( "⌫", Control "Backspace" ) ]
     ]
 
 
-tastatur : Model -> Element msg
+tastatur : Model -> Element Msg
 tastatur model =
     let
         letterColor : String -> Element.Color
@@ -298,10 +299,14 @@ tastatur model =
         |> List.map
             (Element.row [ spacing 10, centerX ]
                 << List.map
-                    (\c ->
+                    (\( c, k ) ->
                         c
                             |> text
-                            |> el [ Background.color <| letterColor c, padding 10 ]
+                            |> el
+                                [ Events.onClick (KeyDown k)
+                                , Background.color <| letterColor c
+                                , padding 10
+                                ]
                     )
             )
         |> Element.column [ spacing 10, Element.alignBottom ]
