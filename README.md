@@ -2,6 +2,8 @@
 
 A wordle clone in Danish.
 
+Go here to play: https://munksgaard.me/ordleg/
+
 ## Word list
 
 Using
