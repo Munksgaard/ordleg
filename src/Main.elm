@@ -6,8 +6,8 @@ import Browser.Events
 import Element exposing (Attribute, Element, centerX, centerY, column, el, height, padding, rgb255, row, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
-import Element.Events as Events
 import Element.Font as Font
+import Element.Input as Input
 import Json.Decode as Json
 import Task
 import Time
@@ -309,19 +309,17 @@ tastatur model =
                 ]
                 << List.map
                     (\( c, k ) ->
-                        el
-                            [ Events.onClick (KeyDown k)
-                            , Background.color <| letterColor c
+                        Input.button
+                            [ Background.color <| letterColor c
                             , keyToWidth k
                             , Font.size 16
                             , height <| Element.px 40
+                            , Element.focused []
+                            , Font.center
                             ]
-                            (el
-                                [ centerY
-                                , centerX
-                                ]
-                                (text c)
-                            )
+                            { onPress = Just <| KeyDown k
+                            , label = text c
+                            }
                     )
             )
         |> Element.column
