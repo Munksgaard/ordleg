@@ -168,8 +168,13 @@ view model =
                     ++ List.repeat 6 emptyRow
                   )
                     |> List.take 6
-                    |> column [ spacing 10, centerX, centerY ]
-                , errorMessage model
+                    |> column
+                        [ spacing 10
+                        , centerX
+                        , centerY
+                        , padding 10
+                        , Element.below <| errorMessage model
+                        ]
                 , tastatur model
                 ]
 
