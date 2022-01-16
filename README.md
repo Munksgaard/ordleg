@@ -18,5 +18,5 @@ cut -f 1 -d';' RO2012.opslagsord.med.homnr.og.ordklasse.txt \
   | uniq \
   | tr [a-zæøå] [A-ZÆØÅ] \
   | paste -sd, - \
-  >> src/Main.elm
+  >> src/WordList.elm
 ```
