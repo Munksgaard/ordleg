@@ -9,6 +9,7 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Json.Decode as Json
+import List.Extra as List
 import Task
 import Time
 
@@ -232,26 +233,59 @@ yellow =
     rgb255 255 255 0
 
 
+charColors : { solution : String, guess : String } -> List ( Element.Color, Char )
+charColors { solution, guess } =
+    let
+        ( correctLetters, correctLetterIndices ) =
+            List.map2 Tuple.pair (String.toList guess) (String.toList solution)
+                |> List.indexedMap
+                    (\i ( x, y ) ->
+                        if x == y then
+                            Just ( x, i )
+
+                        else
+                            Nothing
+                    )
+                |> List.filterMap identity
+                |> List.unzip
+
+        leftoverLetters =
+            List.foldl List.remove (String.toList solution) correctLetters
+    in
+    String.toList guess
+        |> List.indexedMap Tuple.pair
+        |> List.foldl
+            (\( idx, letter ) ( lettersLeft0, acc ) ->
+                let
+                    ( color, lettersLeft ) =
+                        if List.member idx correctLetterIndices then
+                            ( green, lettersLeft0 )
+
+                        else if List.member letter lettersLeft0 then
+                            ( yellow, List.remove letter lettersLeft0 )
+
+                        else
+                            ( gray, lettersLeft0 )
+                in
+                ( lettersLeft, ( color, letter ) :: acc )
+            )
+            ( leftoverLetters, [] )
+        |> Tuple.second
+        |> List.reverse
+
+
 keysCompareDiv : String -> String -> Element msg
 keysCompareDiv solution guess =
-    row [ spacing 10 ] (List.indexedMap (keyCompareDiv solution) <| String.toList guess)
+    charColors { solution = solution, guess = guess }
+        |> List.map (uncurry keyCompareDiv)
+        |> row [ spacing 10 ]
 
 
-keyCompareDiv : String -> Int -> Char -> Element msg
-keyCompareDiv s n c0 =
+keyCompareDiv : Element.Color -> Char -> Element msg
+keyCompareDiv color c0 =
     let
         c =
             String.fromChar c0
-
-        color =
-            if String.slice n (n + 1) s == c then
-                green
-
-            else if String.contains c s then
-                yellow
-
-            else
-                gray
     in
     box [ Background.color color ] <| el [ centerX, centerY ] <| text c
 
@@ -419,6 +453,11 @@ binSearch arr x =
                         False
     in
     binSearchHelper 0 <| Array.length arr
+
+
+identity : x -> x
+identity x =
+    x
 
 
 wordList : Array String
