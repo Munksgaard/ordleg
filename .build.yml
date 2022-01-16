@@ -1,6 +1,10 @@
 image: nixos/latest
 sources:
   - https://git.sr.ht/~munksgaard/ordleg
+secrets:
+  - 8e979256-6444-4309-b738-42aa4510e694
+environment:
+  deploy: deploy@188.34.161.191
 tasks:
   - format: |
       cd ordleg
@@ -11,3 +15,12 @@ tasks:
   - review: |
       cd ordleg
       nix-shell --run "make elm-review"
+  - deploy: |
+      if [ "$(git rev-parse master)" = "$(git rev-parse HEAD)" ]; then
+        cd ordleg/public
+        sshopts="ssh -o StrictHostKeyChecking=no"
+        rsync --rsh="$sshopts" -rP index.html $deploy:/var/www/munksgaard.me/ordleg
+        rsync --rsh="$sshopts" -rP main.js $deploy:/var/www/munksgaard.me/ordleg
+      else
+        echo "Not on master, skipping..."
+      fi
