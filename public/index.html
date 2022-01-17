@@ -29,6 +29,13 @@
         app.ports.storageChanged.send(JSON.parse(event.newValue));
       }
     }, false)
+
+    app.ports.setClipboard.subscribe(function(input) {
+      navigator.clipboard.writeText(input).then(function() {
+      }, function() {
+      });
+    });
+
   </script>
 </body>
 </html>

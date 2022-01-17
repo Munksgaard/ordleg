@@ -108,6 +108,7 @@ type Msg
     = KeyDown Key
     | SetModel Model
     | StorageChanged Json.Value
+    | Share
 
 
 type Key
@@ -197,10 +198,47 @@ update msg model =
             , Cmd.none
             )
 
+        Share ->
+            ( { model | error = Just "Kopieret til udklipsholderen." }
+            , share model
+            )
+
 
 solutionFound : Model -> Bool
 solutionFound model =
     List.head model.guesses == Maybe.map Tuple.second model.dayAndSolution
+
+
+share : Model -> Cmd msg
+share model =
+    case model.dayAndSolution of
+        Just ( day, solution ) ->
+            let
+                guessNumber =
+                    if solutionFound model then
+                        String.fromInt <| List.length model.guesses
+
+                    else
+                        "x"
+            in
+            "Ordleg #"
+                ++ String.fromInt day
+                ++ " "
+                ++ guessNumber
+                ++ "/6"
+                ++ "\n"
+                ++ String.join "\n"
+                    (List.reverse model.guesses
+                        |> List.map
+                            (charColors solution
+                                >> List.map (Tuple.first >> feedbackUnicode)
+                                >> String.fromList
+                            )
+                    )
+                |> setClipboard
+
+        Nothing ->
+            Cmd.none
 
 
 
@@ -298,8 +336,40 @@ yellow =
     rgb255 255 255 0
 
 
-charColors : { solution : String, guess : String } -> List ( Element.Color, Char )
-charColors { solution, guess } =
+type Feedback
+    = Gray
+    | Yellow
+    | Green
+
+
+feedbackColor : Feedback -> Element.Color
+feedbackColor f =
+    case f of
+        Gray ->
+            gray
+
+        Yellow ->
+            yellow
+
+        Green ->
+            green
+
+
+feedbackUnicode : Feedback -> Char
+feedbackUnicode f =
+    case f of
+        Gray ->
+            '⬜'
+
+        Yellow ->
+            '🟨'
+
+        Green ->
+            '🟩'
+
+
+charColors : String -> String -> List ( Feedback, Char )
+charColors solution guess =
     let
         ( correctLetters, correctLetterIndices ) =
             List.map2 Tuple.pair (String.toList guess) (String.toList solution)
@@ -324,13 +394,13 @@ charColors { solution, guess } =
                 let
                     ( color, lettersLeft ) =
                         if List.member idx correctLetterIndices then
-                            ( green, lettersLeft0 )
+                            ( Green, lettersLeft0 )
 
                         else if List.member letter lettersLeft0 then
-                            ( yellow, List.remove letter lettersLeft0 )
+                            ( Yellow, List.remove letter lettersLeft0 )
 
                         else
-                            ( gray, lettersLeft0 )
+                            ( Gray, lettersLeft0 )
                 in
                 ( lettersLeft, ( color, letter ) :: acc )
             )
@@ -341,18 +411,20 @@ charColors { solution, guess } =
 
 keysCompareDiv : String -> String -> Element msg
 keysCompareDiv solution guess =
-    charColors { solution = solution, guess = guess }
+    charColors solution guess
         |> List.map (uncurry keyCompareDiv)
         |> row [ spacing 10 ]
 
 
-keyCompareDiv : Element.Color -> Char -> Element msg
-keyCompareDiv color c0 =
+keyCompareDiv : Feedback -> Char -> Element msg
+keyCompareDiv feedback c0 =
     let
         c =
             String.fromChar c0
     in
-    box [ Background.color color ] <| el [ centerX, centerY ] <| text c
+    text c
+        |> el [ centerX, centerY ]
+        |> box [ Background.color <| feedbackColor feedback ]
 
 
 tastaturList : List (List ( String, Key ))
@@ -453,10 +525,16 @@ errorMessage model =
             Element.none
 
 
-endMessage : Model -> Element msg
+endMessage : Model -> Element Msg
 endMessage model =
     if solutionFound model then
-        Element.paragraph [ Font.center ] [ text "Godt klaret!" ]
+        Element.paragraph [ Font.center ]
+            [ text "Godt klaret! "
+            , Input.button [ Font.underline ]
+                { onPress = Just <| Share
+                , label = text "Del"
+                }
+            ]
 
     else
         case ( model.dayAndSolution, List.length model.guesses >= 6 ) of
@@ -503,6 +581,9 @@ port setStorage : Json.Value -> Cmd msg
 
 
 port storageChanged : (Json.Value -> msg) -> Sub msg
+
+
+port setClipboard : String -> Cmd msg
 
 
 encodeModel : Model -> Json.Value
