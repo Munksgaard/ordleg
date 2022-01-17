@@ -156,7 +156,7 @@ update msg model =
             )
 
         KeyDown (Control "Enter") ->
-            if not (solutionFound model) then
+            if not (solutionFound model) && List.length model.guesses < 6 then
                 if String.length model.currentGuess == 5 then
                     if binSearch wordList model.currentGuess then
                         let
