@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Array exposing (Array)
 import Browser
@@ -9,6 +9,7 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Json.Decode as Json
+import Json.Encode as Encode
 import List.Extra as List
 import Random
 import Task
@@ -34,28 +35,55 @@ main =
 
 
 type alias Model =
-    { guesses : List String
+    { error : Maybe String
     , currentGuess : String
-    , solution : Maybe String
-    , error : Maybe String
+    , dayAndSolution : Maybe ( Int, String )
+    , guesses : List String
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( Model [] "" Nothing Nothing
+emptyModel : Model
+emptyModel =
+    Model Nothing "" Nothing []
+
+
+init : Json.Value -> ( Model, Cmd Msg )
+init json =
+    ( emptyModel
     , Time.now
-        |> Task.map (ordlegDay >> getSolution)
-        |> Task.perform SolutionIs
+        |> Task.map (initialize json)
+        |> Task.perform SetModel
     )
 
 
-getSolution : Int -> String
+initialize : Json.Value -> Time.Posix -> Model
+initialize json time =
+    let
+        day =
+            ordlegDay time
+    in
+    case Json.decodeValue decodeModel json of
+        Ok encodedModel ->
+            if
+                Maybe.map ((==) day << Tuple.first) encodedModel.dayAndSolution
+                    |> Maybe.withDefault False
+            then
+                encodedModel
+
+            else
+                { emptyModel | dayAndSolution = Just <| getSolution day }
+
+        Err _ ->
+            { emptyModel | dayAndSolution = Just <| getSolution day }
+
+
+getSolution : Int -> ( Int, String )
 getSolution day =
     hashDay (Array.length wordList - 1) day
         |> modBy (Array.length wordList)
         |> flip Array.get wordList
         |> Maybe.withDefault "SUPPE"
+        |> Tuple.pair day
 
 
 ordlegDay : Time.Posix -> Int
@@ -63,7 +91,7 @@ ordlegDay d =
     Time.posixToMillis d
         // (1000 * 60 * 60 * 24)
         -- Days from 1970-01-01 to 2022-01-17
-        - 19007
+        - 19006
 
 
 hashDay : Int -> Int -> Int
@@ -78,7 +106,8 @@ hashDay n d =
 
 type Msg
     = KeyDown Key
-    | SolutionIs String
+    | SetModel Model
+    | StorageChanged Json.Value
 
 
 type Key
@@ -89,8 +118,8 @@ type Key
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        SolutionIs solution ->
-            ( { model | solution = Just solution }
+        SetModel new_model ->
+            ( new_model
             , Cmd.none
             )
 
@@ -127,35 +156,51 @@ update msg model =
             )
 
         KeyDown (Control "Enter") ->
-            ( if not (solutionFound model) then
+            if not (solutionFound model) then
                 if String.length model.currentGuess == 5 then
                     if binSearch wordList model.currentGuess then
-                        { model
-                            | currentGuess = ""
-                            , guesses = model.currentGuess :: model.guesses
-                            , error = Nothing
-                        }
+                        let
+                            new_model =
+                                { model
+                                    | currentGuess = ""
+                                    , guesses = model.currentGuess :: model.guesses
+                                    , error = Nothing
+                                }
+                        in
+                        ( new_model, setStorage <| encodeModel new_model )
 
                     else
-                        { model | error = Just "Ordet findes ikke i ordbogen." }
+                        ( { model | error = Just "Ordet findes ikke i ordbogen." }
+                        , Cmd.none
+                        )
 
                 else
-                    { model | error = Just "Ordet skal være fem bogstaver langt." }
+                    ( { model | error = Just "Ordet skal være fem bogstaver langt." }
+                    , Cmd.none
+                    )
 
-              else
-                model
-            , Cmd.none
-            )
+            else
+                ( model, Cmd.none )
 
         KeyDown (Control _) ->
             ( { model | error = Nothing }
             , Cmd.none
             )
 
+        StorageChanged json ->
+            ( case Json.decodeValue decodeModel json of
+                Ok new_model ->
+                    new_model
+
+                Err _ ->
+                    model
+            , Cmd.none
+            )
+
 
 solutionFound : Model -> Bool
 solutionFound model =
-    List.head model.guesses == model.solution
+    List.head model.guesses == Maybe.map Tuple.second model.dayAndSolution
 
 
 
@@ -164,11 +209,11 @@ solutionFound model =
 
 view : Model -> Element Msg
 view model =
-    case model.solution of
+    case model.dayAndSolution of
         Nothing ->
             Element.none
 
-        Just solution ->
+        Just ( _, solution ) ->
             column
                 [ padding 10
                 , centerX
@@ -327,7 +372,8 @@ tastatur model =
                     (\guess ->
                         List.map2 Tuple.pair
                             (List.map String.fromChar <| String.toList guess)
-                            (Maybe.withDefault "" model.solution
+                            (Maybe.map Tuple.second model.dayAndSolution
+                                |> Maybe.withDefault ""
                                 |> String.toList
                                 |> List.map String.fromChar
                             )
@@ -345,7 +391,11 @@ tastatur model =
                     |> List.map String.fromChar
                     |> List.any ((==) c)
             then
-                if String.contains c <| Maybe.withDefault "" model.solution then
+                if
+                    Maybe.map Tuple.second model.dayAndSolution
+                        |> Maybe.withDefault ""
+                        |> String.contains c
+                then
                     yellow
 
                 else
@@ -423,8 +473,41 @@ toKey string =
 
 subscriptions : model -> Sub Msg
 subscriptions _ =
-    Browser.Events.onKeyDown keyDecoder
-        |> Sub.map KeyDown
+    Sub.batch
+        [ Browser.Events.onKeyDown keyDecoder
+            |> Sub.map KeyDown
+        , storageChanged StorageChanged
+        ]
+
+
+
+-- PORTS
+
+
+port setStorage : Json.Value -> Cmd msg
+
+
+port storageChanged : (Json.Value -> msg) -> Sub msg
+
+
+encodeModel : Model -> Json.Value
+encodeModel model =
+    case model.dayAndSolution of
+        Just ( day, _ ) ->
+            Encode.object
+                [ ( "guesses", Encode.list Encode.string model.guesses )
+                , ( "day", Encode.int day )
+                ]
+
+        Nothing ->
+            Encode.null
+
+
+decodeModel : Json.Decoder Model
+decodeModel =
+    Json.map2 (Model Nothing "" << (Just << getSolution))
+        (Json.field "day" Json.int)
+        (Json.field "guesses" (Json.list Json.string))
 
 
 
