@@ -10,6 +10,7 @@ import Element.Font as Font
 import Element.Input as Input
 import Json.Decode as Json
 import List.Extra as List
+import Random
 import Task
 import Time
 import WordList exposing (wordList)
@@ -44,19 +45,31 @@ init : () -> ( Model, Cmd Msg )
 init _ =
     ( Model [] "" Nothing Nothing
     , Time.now
-        |> Task.map
-            (hashDay
-                >> modBy (Array.length wordList)
-                >> flip Array.get wordList
-                >> Maybe.withDefault "SUPPE"
-            )
+        |> Task.map (ordlegDay >> getSolution)
         |> Task.perform SolutionIs
     )
 
 
-hashDay : Time.Posix -> Int
-hashDay t =
-    Time.posixToMillis t // (1000 * 60 * 60 * 24)
+getSolution : Int -> String
+getSolution day =
+    hashDay (Array.length wordList - 1) day
+        |> modBy (Array.length wordList)
+        |> flip Array.get wordList
+        |> Maybe.withDefault "SUPPE"
+
+
+ordlegDay : Time.Posix -> Int
+ordlegDay d =
+    Time.posixToMillis d
+        // (1000 * 60 * 60 * 24)
+        -- Days from 1970-01-01 to 2022-01-17
+        - 19007
+
+
+hashDay : Int -> Int -> Int
+hashDay n d =
+    Random.step (Random.int 0 n) (Random.initialSeed d)
+        |> Tuple.first
 
 
 
