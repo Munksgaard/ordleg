@@ -231,8 +231,9 @@ view model =
                         [ spacing 10
                         , centerX
                         , centerY
-                        , padding 10
+                        , padding 15
                         , Element.below <| errorMessage model
+                        , Element.above <| endMessage model
                         ]
                 , tastatur model
                 ]
@@ -450,6 +451,20 @@ errorMessage model =
 
         Nothing ->
             Element.none
+
+
+endMessage : Model -> Element msg
+endMessage model =
+    if solutionFound model then
+        Element.paragraph [ Font.center ] [ text "Godt klaret!" ]
+
+    else
+        case ( model.dayAndSolution, List.length model.guesses >= 6 ) of
+            ( Just ( _, solution ), True ) ->
+                Element.paragraph [ Font.center ] <| [ text "Desværre... Ordet var ", el [ Font.bold ] (text solution) ]
+
+            _ ->
+                Element.none
 
 
 
